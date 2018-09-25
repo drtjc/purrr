@@ -70,22 +70,29 @@ Iterate(function(x) 1 + 1 / x, 30)(1)
 reduce_right(list(log, exp, acos, cos), Funcall, .init = 5)
 
 
-reduce_right(list(cos), Funcall, .init = 5)
 
-Funcall(cos, 5)
-
-
-Funcall(cos, 5)
+reduce_right(list(cos), Funcall, .init = 0)
 
 
 
-Funcall(cos, 5)
-
-cos(5)
-Reduce(Funcall, list(cos), 5, right = TRUE)
 
 
-Funcall(acos, Funcall(cos, 5))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -104,3 +111,22 @@ Funcall(acos, Funcall(cos, 5))
 
 tt <- rerun(2, sample(10, 5), sample(10, 3))
 tt
+
+
+as_mapper(list(1, attr_getter("a")))
+?pluck
+
+
+
+
+obj1 <- list("a", list(1, elt = "foobar"))
+obj2 <- list("b", list(2, elt = "foobaz"))
+x <- list(obj1, obj2)
+x
+
+# And now an accessor for these complex data structures:
+my_element <- function(x) x[[2]]$elt
+
+# The accessor can then be passed to pluck:
+pluck(x, 1, my_element)
+pluck(x, 2, my_element)
