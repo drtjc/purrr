@@ -75,10 +75,18 @@ f(w = 0, !!!vars, !!name := 3)
 
 
 # FUNCTION
-# functions used as is
+# functions used mostly as is
 f <- as_mapper(mean)
-f
+f # gives UseMethod("mean")
 f(3:5)
+
+# but
+f <- as_mapper(`+`)
+f # givesfunction (.x, .y) if (missing(.y)) .x else .x + .y
+
+f <- as_mapper(`*`)
+f
+
 
 # CHARACTER VECTOR, NUMERIC VECTOR, LIST
 # conveted to extractor function
@@ -93,8 +101,6 @@ f(l) # gives 2
 
 f <- as_mapper(c("a", "v"))
 f(l) # gives 2
-
-
 
 
 
@@ -133,10 +139,6 @@ pluck(x, idx)
 
 
 
-v <- list(1:2, 3:4, 5:6) %>% as_vector(integer(2))
-
-
-
 
 
 # accumulate
@@ -157,27 +159,48 @@ c(5,1:10) %>% accumulate(max)
 
 
 
-1:10 %>% reduce(~ .x)
-1:10 %>% reduce(~ .y)
 
 
-ff <- as_mapper(~ .x)
-ff
 
 
-gg <- as_mapper(~ .y)
-gg
-gg(1, 2)
-gg(2, 3)
 
-hh <- as_mapper(~ x ^2)
-hh
+# array branch
+x <- array(1:24, c(4, 3, 2))
+x
 
-tt <- function(...) {
-  print(..1)
-}
-tt(3,4,5)
+# A full margin for such an array would be the vector 1:3. This is
+# the default if you don't specify a margin
+# Creating a branch along the full margin is equivalent to
+# as.list(array) and produces a list of size length(x):
+array_branch(x) %>% str()
 
+# A branch along the first dimension yields a list of length 2
+# with each element containing a 3x2 array:
+array_branch(x, 1) %>% str()
+
+# A branch along the first and third dimensions yields a list of
+# length 4x2 whose elements contain a vector of length 3:
+array_branch(x, c(1, 3)) %>% str()
+
+
+# array tree
+x <- array(1:24, c(4, 3, 2))
+x
+# Creating a tree from the full margin creates a list of lists of
+# lists:
+array_tree(x) %>% str()
+# The ordering and the depth of the tree are controlled by the
+# margin argument:
+array_tree(x, c(3, 1)) %>% str()
+array_tree(x, c(1, 3)) %>% str()
+
+
+
+
+
+# as_vector
+
+v <- list(1:2, 3:4, 5:6) %>% as_vector(integer(2))
 
 
 
@@ -185,5 +208,34 @@ tt <- rerun(2, sample(10, 5), sample(10, 3))
 tt
 
 
-as_mapper(list(1, attr_getter("a")))
+
+f <- function(x) {
+  y <- 20
+  if (x > 5) {
+    stop("!")
+  } else {
+    x
+  }
+}
+
+if (interactive()) {
+  map(1:6, f)
+}
+
+
+if (interactive()) {
+  map(1:6, auto_browse(f))
+}
+
+auto_browse(f)
+
+
+rep(10, 10) %>% map(sample, 5) %>% keep(function(x) mean(x) > 6)
+
+x <- rerun(5, a = rbernoulli(1), b = sample(10))
+x
+x %>% keep("a")
+
+
+
 
