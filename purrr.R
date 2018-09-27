@@ -204,6 +204,104 @@ v <- list(1:2, 3:4, 5:6) %>% as_vector(integer(2))
 
 
 
+
+
+
+## compose
+# compose(...)
+# ... n functions to apply in order from right to left
+not_null <- compose (`!`, is.null)
+not_null
+not_null(4)
+not_null(NULL)
+
+
+f <- compose(sin, cos)
+f(0)
+sin(cos(0))
+
+l <- list(sin, cos)
+f <- compose(l) # doesn't work
+
+
+add1 <- function(x) x + 1
+compose(add1, add1)(8)
+
+
+## cross
+# cross(.l, .filter = NULL)
+
+
+data <- list(
+  id = c("John", "Jane"),
+  greeting = c("Hello.", "Bonjour."),
+  sep = c("! ", "... ")
+)
+
+data %>%
+  cross() %>%
+  map(lift(paste))
+
+
+
+## lift
+# lift_xy() is a composition helper. It helps you compose functions by lifting their 
+# domain from a kind of input to another kind. The domain can be changed from and to 
+# a list (l), a vector (v) and dots (d). For example, lift_ld(fun) transforms a 
+# function taking a list to a function taking dots.
+
+# lift is alias for lift_dl
+
+# lift_dl
+# takes function that takes mulitple argument (maybe dots), and makes it accept a list
+x <- list(x = c(1:100, NA, 1000), na.rm = TRUE, trim = 0.9)
+x
+mean(x)
+lift_dl(mean)(x)
+View(environment(lift_dl(mean)))
+
+x <- list(x = c(1:100, NA, 1000), trim = 0.9)
+lift_dl(mean)(x) # NA
+lift_dl(mean)(x, na.rm = TRUE)
+lift_dl(mean, na.rm = TRUE)(x)
+
+
+l <- list(sin, cos)
+lift_dl(compose)(l)(0)
+
+
+# lift_dl() and lift_ld() are inverse of each other
+# Here we transform sum() so that it takes a list
+fun <- sum %>% lift_dl()
+fun(list(3, NA, 4, na.rm = TRUE))
+
+# Now we transform it back to a variadic function
+fun2 <- fun %>% lift_ld()
+fun2
+fun2(3, NA, 4, na.rm = TRUE)
+
+
+
+lifted_identical <- lift_dl(identical, .unnamed = TRUE)
+mtcars[c(1, 1)] %>% lifted_identical()
+mtcars[c(1, 2)] %>% lifted_identical()
+
+lifted_identical <- lift_dl(identical, .unnamed = FALSE)
+mtcars[c(1, 1)] %>% lifted_identical() # error, thinks there are args called mpg and mpg.q
+
+
+
+
+unname(mtcars[c(1, 1)])
+
+
+?identical
+
+
+
+
+
+
 tt <- rerun(2, sample(10, 5), sample(10, 3))
 tt
 
