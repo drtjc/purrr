@@ -1,7 +1,7 @@
 library(purrr)
 library(magrittr)
 library(rlang)
-
+library(tibble)
 
 
 
@@ -21,11 +21,6 @@ c(5,1:10) %>% accumulate(max)
 
 1:10 %>% accumulate(~ .x)
 1:10 %>% accumulate(~ .y)
-
-
-
-
-
 
 
 
@@ -111,10 +106,14 @@ array_tree(x, c(1, 3)) %>% str()
 
 
 
-# AS_VECTOR
+# AS_VECTOR, SIMPLFY, SIMPLYFY_ALL
 # as_vector
+# as_vector() collapses a list of vectors into one vector
 v <- list(1:2, 3:4, 5:6) %>% as_vector(integer(2))
 v
+# as_vector and simplfy call unlist()
+# if list can't be simplified, as_vector returns an error, simplify return the original list
+# simplify_all cal simplify on each element of list
 
 
 
@@ -441,11 +440,153 @@ update_list(x, z1 = ~z[[1]])
 update_list(x, z = rlang::quo(x + y))
 
 
+
+
+## MAP
+# The map functions transform their input by applying a function to each element and returning a vector the same length as the input.
+# map(), map_if() and map_at() always return a list.
+# The _if and _at variants take a predicate function .p that determines which elements of .x are transformed with .f.
+# map_lgl(), map_int(), map_dbl() and map_chr() return vectors of the corresponding type (or die trying).
+# map_dfr() and map_dfc() return data frames created by row-binding and column-binding respectively.
+# walk() calls .f for its side-effect and returns the input .x.
+1:10 %>%
+  map(rnorm, n = 10) %>%
+  map_dbl(mean)
+
+# Or use an anonymous function
+1:10 %>%
+  map(function(x) rnorm(10, x))
+
+1:10 %>%
+  map(~ rnorm(10, .x))
+
+
+# .default specifies value for elements that are missing or NULL
+l1 <- list(list(a = 1L), list(a = NULL, b = 2L), list(b = 3L))
+l1
+l1 %>% map("a", .default = "???")
+l1[[1]][["a"]]
+l1[[2]][["a"]]
+l1[[3]][["a"]]
+l1 %>% map_int("b", .default = NA)
+
+
+# Supply multiple values to index deeply into a list
+l2 <- list(
+  list(num = 1:3,     letters[1:3]),
+  list(num = 101:103, letters[4:6]),
+  list()
+)
+l2
+l2 %>% map(c(2, 2))
+
+# Use a list to build an extractor that mixes numeric indices and names,
+# and .default to provide a default value if the element does not exist
+l2 %>% map(list("num", 3))
+l2 %>% map_int(list("num", 3), .default = NA)
+
+is_even <- function(x) x %% 2 == 0
+v <- 1:5
+map_int(v, `+`, 1L)
+map_at(v, c(1,4), `+`, 1L) %>% flatten_int()
+map_if(v, is_even, `+`, 1L) %>% flatten_int()
+
+
+mtcars %>%
+  split(.$cyl) %>%
+  map(~ lm(mpg ~ wt, data = .x)) %>%
+  map_dfr(~ as.data.frame(t(as.matrix(coef(.)))))
+
+
+
+## LMAP. LMAP_IF, LMAP_AT
+maybe_rep <- function(x) {
+  n <- rpois(1, 2)
+  out <- rep_len(x, n)
+  if (length(out) > 0) {
+    names(out) <- paste0(names(x), seq_len(n))
+  }
+  out
+}
+x <- list(a = 1:4, b = letters[5:7], c = 8:9, d = letters[10])
+x %>% lmap(maybe_rep)
+
+
+## MAP2, PMAP
+x <- list(1, 10, 100)
+y <- list(1, 2, 3)
+z <- list(5, 50, 500)
+
+pmap(list(x, y, z), ~lift_vd(mean)(...))
+
+
+
+pluck(list(x, y, z), list(1,3))
+
+pmap(list(x, y, z), sum)
+l <- data.frame(x = 1:3, y = 4:6, z = 7:9)
+lmap(l, `*`, 2)
+
+# Matching arguments by position
+pmap(list(x, y, z), function(a, b ,c) a / (b + c))
+
+# Matching arguments by name
+l <- list(a = x, b = y, c = z)
+pmap(l, function(c, b, a) a / (b + c))
+
+df <- data.frame(
+  x = c("apple", "banana", "cherry"),
+  pattern = c("p", "n", "h"),
+  replacement = c("x", "f", "q"),
+  stringsAsFactors = FALSE
+)
+pmap(df, gsub)
+pmap_chr(df, gsub)
+
+
+## Use `...` to absorb unused components of input list .l
+df <- data.frame(
+  x = 1:3 + 0.1,
+  y = 3:1 - 0.1,
+  z = letters[1:3]
+)
+plus <- function(x, y) x + y
+## Not run: 
+## this won't work
+pmap(df, plus)
+
+## End(Not run)
+## but this will
+plus2 <- function(x, y, ...) x + y
+pmap_dbl(df, plus2)
+
+
+
+
+
+
+
 ## MODIFY
 # modify() is a short-cut for x[] <- map(x, .f); return(x)
 # modify_if() only modifies the elements of x that satisfy a predicate and leaves the others unchanged.
 # modify_at() only modifies elements given by names or positions. 
 # modify_depth() only modifies elements at a given level of a nested data structure.
+l1 <- list(
+  obj1 = list(
+    prop1 = list(param1 = 1:2, param2 = 3:4),
+    prop2 = list(param1 = 5:6, param2 = 7:8)
+  ),
+  obj2 = list(
+    prop1 = list(param1 = 9:10, param2 = 11:12),
+    prop2 = list(param1 = 12:14, param2 = 15:17)
+  )
+)
+l1 %>% modify_depth(3, sum) %>% str()
+l1 %>% purrr::modify(c("prop1", "param2")) %>% str()
+l1 %>% modify_depth(2, "param2") %>% str()
+
+map(l1, c("prop1", "param2")) %>% str()
+map(l1, ~ map(., "param2")) %>% str()
 
 
 
@@ -459,6 +600,52 @@ negate(is.null)(NULL)
 
 negate(~ .x > 0)(4, 5)
 negate(~ .x > 0)(-4, 5)
+
+
+
+## NULL DEFAULT
+# This infix function makes it easy to replace NULLs with a default value.
+1 %||% 2
+NULL %||% 2
+
+
+
+## PARTIAL
+# Partial function application allows you to modify a function by pre-filling some of the arguments. 
+# It is particularly useful in conjunction with functionals and other function operators.
+# Partial is designed to replace the use of anonymous functions for
+# filling in function arguments. Instead of:
+compact1 <- function(x) discard(x, is.null)
+
+# we can write:
+compact2 <- partial(discard, .p = is.null)
+
+# and the generated source code is very similar to what we made by hand
+compact1
+compact2
+
+
+# Note that the evaluation occurs "lazily" so that arguments will be
+# repeatedly evaluated
+f <- partial(runif, n = rpois(1, 5))
+f
+f()
+f()
+
+# You can override this by saying .lazy = FALSE
+f <- partial(runif, n = rpois(1, 5), .lazy = FALSE)
+f
+f()
+f()
+
+
+# This also means that partial works fine with functions that do
+# non-standard evaluation
+my_long_variable <- 1:10
+plot2 <- partial(plot, my_long_variable)
+plot2()
+plot2(runif(10), type = "l")
+
 
 
 
@@ -501,6 +688,153 @@ pluck(x, idx)
 
 
 
+## SAFELY, QUIETLY, POSSIBLY
+# safely: wrapped function instead returns a list with components result and error. One value is always NULL.
+# safely(.f, otherwise = NULL, quiet = TRUE)
+safe_log <- safely(log)
+safe_log(10)
+safe_log("a")
+
+str(list("a", 10, 100) %>%
+  map(safe_log) %>%
+  transpose())
+
+safe_log <- safely(log, otherwise = NA_real_)
+str(list("a", 10, 100) %>%
+  map(safe_log) %>%
+  transpose() %>%
+  simplify_all())
+
+
+# quietly: wrapped function instead returns a list with components result, output, messages and warnings.
+f <- function(x) message(x)
+quiet_f <- quietly(f)
+quiet_f(10)
+quiet_f("a")
+
+
+
+
+# possibly: wrapped function uses a default value (otherwise) whenever an error occurs.
+# possibly(.f, otherwise, quiet = TRUE)
+str(list("a", 10, 100) %>%
+  map_dbl(possibly(log, NA_real_)))
+
+str(list("a", 10, 100) %>%
+      map_dbl(possibly(log, NA_real_, FALSE)))
+
+
+
+# PREPEND
+# This is a companion to append() to help merging two lists or atomic vectors. 
+# prepend() is a clearer semantic signal than c() that a vector is to be merged 
+# at the beginning of another, especially in a pipe chain.
+# prepend(x, values, before = 1)
+x <- as.list(1:3)
+
+x %>% append("a")
+x %>% prepend("a")
+x %>% prepend(list("a", "b"), before = 3)
+
+append(1:5, 0:1, after = 3)
+
+
+# RERUN
+10 %>% rerun(rnorm(5))
+10 %>% rerun(x = rnorm(5), y = rnorm(5))
+10 %>% rerun(x = rnorm(5)) # second level list not dropped
+
+
+## SPLICE
+inputs <- list(arg1 = "a", arg2 = "b")
+
+# splice() concatenates the elements of inputs with arg3
+purrr::splice(inputs, arg3 = c("c1", "c2")) %>% str()
+list(inputs, arg3 = c("c1", "c2")) %>% str()
+c(inputs, arg3 = c("c1", "c2")) %>% str()
+
+
+## TRANSPOSE
+# Transpose turns a list-of-lists "inside-out"; it turns a pair of lists into a list of pairs, or a list of pairs into pair of lists.
+# transpose(.l, .names = NULL)
+x <- rerun(5, x = runif(1), y = runif(5))
+x %>% str()
+x %>% transpose() %>% str()
+
+ll <- list(
+  list(x = 1, y = "one"),
+  list(z = "deux", x = 2)
+)
+ll %>% transpose()
+
+# Provide explicit component names to prevent loss of those that don't
+# appear in first component
+nms <- ll %>% map(names) %>% reduce(union)
+nms
+ll %>% transpose(.names = nms)
+
+
+## VEC_DEPTH
+x <- list(
+  list(),
+  list(list()),
+  list(list(list(1)))
+)
+vec_depth(x)
+str(x)
+x[[3]][[1]][[1]][[1]]
+
+x %>% map_int(vec_depth)
+
+
+
+## WHEN
+# When a valid match/condition is found the action is executed and the result of the action is returned.
+## when(., ...)
+# .	the value to match against
+# ...	formulas; each containing a condition as LHS and an action as RHS. named arguments will define additional values.
+1:10 %>%
+  when(
+    sum(.) <=  50 ~ sum(.),
+    sum(.) <= 100 ~ sum(.)/2,
+    ~ 0
+  )
+
+1:10 %>%
+  when(
+    sum(.) <=   x ~ sum(.),
+    sum(.) <= 2*x ~ sum(.)/2,
+    ~ 0,
+    x = 60
+  )
+
+
+1:10 %>%
+  when(
+    sum(.) <=  50 ~ sum(.),
+    sum(.) <= 51 ~ sum(.)/2,
+    ~ 0
+  )
+
+
+iris %>%
+  subset(Sepal.Length > 10) %>%
+  when(
+    nrow(.) > 0 ~ .,
+    ~ iris %>% head(10)
+  )
+
+iris %>%
+  head %>%
+  when(nrow(.) < 3 ~ .,
+       ~ stop("Expected fewer than 3 rows."))
+
+
+
+## ATTRIBUTE ACCESSOR
+factor(1:3) %@% "levels"
+mtcars %@% "class"
+`%@%`
 
 
 
