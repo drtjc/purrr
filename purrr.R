@@ -280,14 +280,49 @@ fun2 <- fun %>% lift_ld()
 fun2
 fun2(3, NA, 4, na.rm = TRUE)
 
-
-
 lifted_identical <- lift_dl(identical, .unnamed = TRUE)
 mtcars[c(1, 1)] %>% lifted_identical()
 mtcars[c(1, 2)] %>% lifted_identical()
 
 lifted_identical <- lift_dl(identical, .unnamed = FALSE)
 mtcars[c(1, 1)] %>% lifted_identical() # error, thinks there are args called mpg and mpg.q
+
+
+
+# lift_vd
+mean(c(1,2,3))
+mean(1,2,3) # 1, 2nd and 3rd args treated as trim and na.rm
+lift_vd(mean)(1, 2, 3)
+
+# pmap - treats data frames as list of lists (columns). It then goes across each list for every row
+pmap(mtcars, lift_vd(mean)) # calculates row means
+map(1:nrow(mtcars), ~mean(as_vector(mtcars[., ]))) # another way of calculating row means
+
+
+# lift_vd() will collect the arguments and concatenate them to a
+# vector before passing them to ..f. You can add a check to assert
+# the type of vector you expect:
+lift_vd(tolower, .type = character(1))("THIS", "is", "ok")
+lift_vd(tolower, .type = character(1))("this", "is", 1)
+
+
+
+
+
+
+
+
+
+
+
+
+
+x <- list(1, 10, 100)
+y <- list(1, 2, 3)
+z <- list(5, 50, 500)
+pmap(list(x, y, z), function(a, b ,c) a / (b + c))
+
+
 
 
 
